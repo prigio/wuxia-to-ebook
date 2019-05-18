@@ -269,5 +269,7 @@ if __name__ == "__main__":
 	except ValueError as e:
 		#used to communicate that the URL was not found
 		print("\nERROR - %s" % e, file=sys.stderr)
+	except requests.exceptions.ConnectionError as e:
+		print("\nERROR - %s" % e, file=sys.stderr)
 	except Exception as e:
 		raise(e)
