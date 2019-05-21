@@ -96,8 +96,8 @@ def process_chapters(chapter_urls, novel_folder, use_cache=True, reprocess_cache
 		i += 1
 		if i%100 == 0:
 			print("   ... %s chapters" % i)
-
-		chapterfilename = base64.b64encode(bytes(l, encoding="utf-8")).decode("utf-8")
+		# chapterfilename = base64.b64encode(bytes(l, encoding="utf-8")).decode("utf-8")
+		chapterfilename = "Chapter-%04d" % i
 		chapterfile_html =  os.path.join(
 							cache_folder,
 							"%s.html" % chapterfilename
@@ -135,12 +135,14 @@ def process_chapters(chapter_urls, novel_folder, use_cache=True, reprocess_cache
 	return chapter_markdowns
 
 def get_chapter_markdown(html_element):
+	# title of the html page, used for logging purposes
+	html_title = html_element.find("title")[0].text
 	# get the title
 	try: 
 		title = html_element.find("div.section div.section-content div.panel div.caption h4")[0].text
 	except:
-		title=""
-		print('Title not found for url="%s"' % l)
+		title = html_title
+		print('\tWARN: title not found for chapter="%s"' % html_title)
 	# get all the paragraphs	
 	#paragraphs = [p.text.replace("…","...") for p in html_element.find("div.section div.section-content div.p-15 div.fr-view p") if p.text != "" and not p.text.startswith("Previous")]
 	paragraphs = [p.raw_html.decode(html_element.encoding).replace("…","...").replace('style=""','') for p in html_element.find("div.section div.section-content div.p-15 div.fr-view p") if p.text != "" and not p.text.startswith("Previous")]
@@ -148,7 +150,8 @@ def get_chapter_markdown(html_element):
 	# the first might be similar to the title, therefore it gets excluded
 	if "chapter" in paragraphs[0].lower():
 		paragraphs = paragraphs[1:]
-
+	if len(paragraphs)<2:
+		print('\tWARN: paragraphs not found for chapter="%s"' % html_title)
 	# concatenate all the paragraphs
 	text = "\n\n".join(paragraphs)
 	# generate markdown for this chapter
@@ -188,7 +191,13 @@ def generate_epub(markdown_file, epub_file, metadata={}):
 		print("Epub generation successful into file=%s, took %s seconds" % (epub_file, round(time.time() - start_time,3)))
 		return True
 
-
+def output_chapter_stats(novel, output_file, chapter_markdowns):
+	i = 0
+	print("Writing chapter length statistics into file %s" % output_file)
+	with open(output_file, "w") as f:
+		for c in chapter_markdowns:
+			i += 1			
+			f.write('novel="%s" chapter=%s length=%s\n' % (novel, i, len(c)))
 
 if __name__ == "__main__":
 	parser = argparse.ArgumentParser()
@@ -234,6 +243,10 @@ if __name__ == "__main__":
 		output_md = os.path.join(novel_folder, "%s.md" % novel)
 		# filename of the epub. it MUST contain two additional variables for the starting and ending chapter.
 		output_epub = os.path.join(novel_folder, "%s_%%s-%%s.epub" % novel)
+		
+		output_stats = os.path.join(novel_folder, "%s_stats.log" % novel)
+
+		output_chapter_stats(novel=novel, output_file=output_stats, chapter_markdowns=chapter_markdowns)
 
 		if args.split > 0:
 			chapter_markdowns = [chapter_markdowns[i:i + args.split] for i in range(0, len(chapter_markdowns), args.split)]
